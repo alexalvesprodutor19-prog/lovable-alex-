@@ -122,6 +122,17 @@ export function Dashboard() {
     setTimeout(() => setMensagemSucesso(''), 4000);
   };
 
+  const obterPedidosDaMesa = (mesaId: number): Pedido[] => {
+    const mesa = mesas.find(m => m.id === mesaId);
+    const pedidosUnicos = new Map<string, Pedido>();
+
+    [...(mesa?.pedidos || []), ...pedidosProducao.filter(p => p.mesaId === mesaId)].forEach(pedido => {
+      pedidosUnicos.set(pedido.id, pedido);
+    });
+
+    return Array.from(pedidosUnicos.values());
+  };
+
   // --- AÇÕES DO CICLO COMPLETO ---
 
   // 1. ABRIR MESA OU ALTERAR NOME
@@ -224,8 +235,13 @@ export function Dashboard() {
     const mesa = mesas.find(m => m.id === mesaId);
     if (!mesa) return;
 
-    // Junta pedidos da mesa no KDS e local
-    const todosPedidos = [...mesa.pedidos, ...pedidosProducao.filter(p => p.mesaId === mesaId)];
+    // Consolida os pedidos da mesa sem duplicar os pedidos presentes no KDS e na comanda
+    const todosPedidos = obterPedidosDaMesa(mesaId);
+    if (todosPedidos.length === 0) {
+      exibirNotificacao(`A Mesa ${mesaId} não possui consumo registrado para pagamento.`);
+      return;
+    }
+
     const subtotal = todosPedidos.reduce((acc, p) => acc + p.total, 0);
     const taxa = aplicarDezPorcento ? subtotal * 0.10 : 0;
     const totalComTaxa = subtotal + taxa;
@@ -256,10 +272,7 @@ export function Dashboard() {
   };
 
   const mesaAtualObj = mesas.find(m => m.id === mesaSelecionadaId);
-  const pedidosDaMesaAtual = [
-    ...(mesaAtualObj?.pedidos || []),
-    ...pedidosProducao.filter(p => p.mesaId === mesaSelecionadaId)
-  ];
+  const pedidosDaMesaAtual = mesaSelecionadaId ? obterPedidosDaMesa(mesaSelecionadaId) : [];
   const subtotalMesaAtual = pedidosDaMesaAtual.reduce((acc, p) => acc + p.total, 0);
 
   return (
@@ -366,8 +379,7 @@ export function Dashboard() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-6">
               {mesas.map((mesa) => {
-                const totalMesa = pedidosProducao
-                  .filter(p => p.mesaId === mesa.id)
+                const totalMesa = obterPedidosDaMesa(mesa.id)
                   .reduce((sum, p) => sum + p.total, 0);
 
                 return (
