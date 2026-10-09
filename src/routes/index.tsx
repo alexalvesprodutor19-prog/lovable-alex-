@@ -22,6 +22,7 @@ import {
   QrCode,
   Printer
 } from 'lucide-react';
+import { isSupabaseConfigured, supabase } from '../lib/supabase';
 
 export const Route = createFileRoute('/')({
   component: Dashboard,
@@ -131,6 +132,38 @@ interface MovimentoFinanceiro {
 
 export function Dashboard() {
   const [aba, setAba] = useState<'mesas' | 'cardapio' | 'kds' | 'caixa' | 'estoque' | 'loja'>('mesas');
+  const [statusIntegracao, setStatusIntegracao] = useState<'verificando' | 'configurado' | 'indisponivel' | 'erro'>('verificando');
+
+  useEffect(() => {
+    let ativo = true;
+
+    const verificarIntegracao = async () => {
+      if (!isSupabaseConfigured || !supabase) {
+        if (ativo) setStatusIntegracao('indisponivel');
+        return;
+      }
+
+      const { error } = await supabase.auth.getSession();
+      if (ativo) setStatusIntegracao(error ? 'erro' : 'configurado');
+    };
+
+    void verificarIntegracao();
+
+    if (!supabase) {
+      return () => {
+        ativo = false;
+      };
+    }
+
+    const { data } = supabase.auth.onAuthStateChange(() => {
+      void verificarIntegracao();
+    });
+
+    return () => {
+      ativo = false;
+      data.subscription.unsubscribe();
+    };
+  }, []);
   
   // Estoque & Cardápio Inicial
   const [cardapio, setCardapio] = useState<ItemCardapio[]>([
@@ -1433,6 +1466,26 @@ export function Dashboard() {
             </div>
           </div>
         )}
+
+        <section className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/80 p-4 shadow-xl">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-bold text-white">Integração com Supabase</p>
+              <p className="mt-1 text-xs text-slate-400">
+                {statusIntegracao === 'configurado'
+                  ? 'Cliente configurado e sessão verificada.'
+                  : statusIntegracao === 'verificando'
+                    ? 'Verificando a configuração do cliente...'
+                    : statusIntegracao === 'erro'
+                      ? 'Não foi possível verificar a sessão configurada.'
+                      : 'Configure as variáveis VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY.'}
+              </p>
+            </div>
+            <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusIntegracao === 'configurado' ? 'bg-emerald-500/15 text-emerald-300' : statusIntegracao === 'verificando' ? 'bg-amber-500/15 text-amber-300' : 'bg-rose-500/15 text-rose-300'}`}>
+              {statusIntegracao === 'configurado' ? 'Configurado' : statusIntegracao === 'verificando' ? 'Verificando' : 'Pendente'}
+            </span>
+          </div>
+        </section>
       </main>
     </div>
   );
