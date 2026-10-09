@@ -1241,18 +1241,29 @@ export function Dashboard() {
                     onChange={e => {
                       const id = e.target.value;
                       const venda = vendasLoja.find(item => item.id === id);
-                      const produtoDevolvido = venda?.itens[0]?.produtoId ?? '';
+                      const itemDevolvido = venda?.itens[0];
+                      const produtoDevolvido = itemDevolvido?.produtoId ?? '';
                       const produtoNovo = produtosLoja.find(produto => produto.id !== produtoDevolvido && produto.estoque > 0)?.id ?? '';
                       setVendaTrocaId(id);
                       setProdutoDevolvidoId(produtoDevolvido);
                       setProdutoNovoId(produtoNovo);
+                      setQuantidadeTroca(Math.max(1, itemDevolvido?.quantidade ?? 1));
                     }}
                     className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white"
                   >
                     {vendasLoja.map(venda => <option key={venda.id} value={venda.id}>{venda.id} · {venda.cliente} · R$ {venda.total.toFixed(2)}</option>)}
                   </select>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <select value={produtoDevolvidoId} onChange={e => setProdutoDevolvidoId(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white">
+                    <select
+                      value={produtoDevolvidoId}
+                      onChange={e => {
+                        const produtoId = e.target.value;
+                        const item = vendasLoja.find(venda => venda.id === vendaTrocaId)?.itens.find(item => item.produtoId === produtoId);
+                        setProdutoDevolvidoId(produtoId);
+                        setQuantidadeTroca(Math.max(1, item?.quantidade ?? 1));
+                      }}
+                      className="rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white"
+                    >
                       {vendasLoja.find(venda => venda.id === vendaTrocaId)?.itens.map(item => {
                         const produto = produtosLoja.find(candidate => candidate.id === item.produtoId);
                         return produto ? <option key={produto.id} value={produto.id}>Devolver: {produto.nome}</option> : null;
@@ -1264,10 +1275,22 @@ export function Dashboard() {
                         .map(produto => <option key={produto.id} value={produto.id}>Levar: {produto.nome}</option>)}
                     </select>
                   </div>
-                  <input type="number" min="1" value={quantidadeTroca} onChange={e => setQuantidadeTroca(Number(e.target.value))} className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white" placeholder="Quantidade" />
+                  <input
+                    type="number"
+                    min="1"
+                    max={vendasLoja.find(venda => venda.id === vendaTrocaId)?.itens.find(item => item.produtoId === produtoDevolvidoId)?.quantidade ?? 1}
+                    value={quantidadeTroca}
+                    onChange={e => {
+                      const quantidadeMaxima = vendasLoja.find(venda => venda.id === vendaTrocaId)?.itens.find(item => item.produtoId === produtoDevolvidoId)?.quantidade ?? 1;
+                      const quantidadeInformada = Number(e.target.value);
+                      setQuantidadeTroca(Math.min(quantidadeMaxima, Math.max(1, quantidadeInformada || 1)));
+                    }}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white"
+                    placeholder="Quantidade"
+                  />
                   <button
                     onClick={realizarTrocaLoja}
-                    disabled={!produtoDevolvidoId || !produtoNovoId || produtoDevolvidoId === produtoNovoId}
+                    disabled={!produtoDevolvidoId || !produtoNovoId || produtoDevolvidoId === produtoNovoId || quantidadeTroca < 1}
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-600 py-3 text-sm font-bold text-slate-950 hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <ArrowLeftRight className="h-4 w-4" /> Confirmar troca
