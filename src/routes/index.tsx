@@ -117,6 +117,18 @@ interface ResultadoTeste {
   detalhe: string;
 }
 
+type TipoMovimentoFinanceiro = 'recebimento' | 'estorno';
+
+interface MovimentoFinanceiro {
+  id: string;
+  origem: 'mesa' | 'loja';
+  referenciaId: string;
+  tipo: TipoMovimentoFinanceiro;
+  formaPagamento: string;
+  valor: number;
+  horario: string;
+}
+
 export function Dashboard() {
   const [aba, setAba] = useState<'mesas' | 'cardapio' | 'kds' | 'caixa' | 'estoque' | 'loja'>('mesas');
   
@@ -201,6 +213,7 @@ export function Dashboard() {
     }
   ]);
   const [trocasLoja, setTrocasLoja] = useState<TrocaLoja[]>([]);
+  const [movimentosFinanceiros, setMovimentosFinanceiros] = useState<MovimentoFinanceiro[]>([]);
   const pagamentosEmAndamento = useRef<Set<number>>(new Set());
   const [vendaTrocaId, setVendaTrocaId] = useState('VDA-1001');
   const [produtoDevolvidoId, setProdutoDevolvidoId] = useState('roupa-1');
@@ -422,7 +435,7 @@ export function Dashboard() {
 
     pagamentosEmAndamento.current.add(mesaId);
     try {
-      // Consolida os pedidos da mesa sem duplicar os pedidos presentes no KDS e na comanda
+      // Consolida os pedidos da mesa sem duplicar os pedidos presentes no KDS e na comanda.
       const todosPedidos = obterPedidosDaMesa(mesaId);
       if (todosPedidos.length === 0) {
         exibirNotificacao(`A Mesa ${mesaId} não possui consumo registrado para pagamento.`);
@@ -437,7 +450,21 @@ export function Dashboard() {
         return;
       }
 
-      // Reseta Mesa para livre somente depois de validar todo o pagamento
+      const horario = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const recebimento: MovimentoFinanceiro = {
+        id: `REC-MESA-${mesaId}-${Date.now()}`,
+        origem: 'mesa',
+        referenciaId: `MESA-${mesaId}`,
+        tipo: 'recebimento',
+        formaPagamento,
+        valor: totalComTaxa,
+        horario
+      };
+
+      // O recebimento é registrado antes da liberação da mesa, mantendo a movimentação financeira ligada à operação concluída.
+      setMovimentosFinanceiros(prev => [recebimento, ...prev]);
+
+      // Reseta a mesa para livre somente depois de validar e registrar todo o pagamento.
       setMesas(prev => prev.map(m => {
         if (m.id === mesaId) {
           return {
@@ -450,9 +477,9 @@ export function Dashboard() {
         return m;
       }));
 
-      // Remove pedidos da produção finalizados
+      // Remove pedidos da produção finalizados.
       setPedidosProducao(prev => prev.filter(p => p.mesaId !== mesaId));
-      exibirNotificacao(`Pagamento de R$ ${totalComTaxa.toFixed(2)} (${formaPagamento}) concluído! Mesa ${mesaId} liberada.`);
+      exibirNotificacao(`Pagamento de R$ ${totalComTaxa.toFixed(2)} (${formaPagamento}) registrado e concluído! Mesa ${mesaId} liberada.`);
     } finally {
       pagamentosEmAndamento.current.delete(mesaId);
     }

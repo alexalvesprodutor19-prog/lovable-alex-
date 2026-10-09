@@ -100,6 +100,7 @@ const run = () => {
 
   const conciliacao = conciliarCaixa({ vendas: [{ total: 98 }], trocas: [{ diferenca: 15.9 }], valorContado: 113.9 });
   assert(conciliacao.status === 'concluida' && conciliacao.diferenca === 0, 'A conciliação correta do caixa falhou.');
+  assert(conciliarCaixa({ vendas: [{ total: 98 }], trocas: [{ diferenca: -20 }], valorContado: 78 }).diferenca === 0, 'O estorno financeiro não foi abatido da conciliação.');
   assert(conciliarCaixa({ vendas: [{ total: 98 }], trocas: [], valorContado: -1 }).status === 'valor_invalido', 'Um valor negativo foi aceito no caixa.');
 
   const agenda = [];
