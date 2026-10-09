@@ -45,6 +45,17 @@ const conciliarCaixa = ({ vendas, trocas, valorContado }) => {
   return { status: 'concluida', esperado: money(esperado), diferenca: money(valorContado - esperado) };
 };
 
+const gerarMovimento = (origem, referenciaId, tipo, valor) => ({
+  id: `${TEST_PREFIX}MOV-${referenciaId}`,
+  origem,
+  referenciaId,
+  tipo,
+  valor: money(Math.abs(valor))
+});
+
+const totalEsperadoCaixa = (movimentos) =>
+  money(movimentos.reduce((total, movimento) => total + (movimento.tipo === 'recebimento' ? movimento.valor : -movimento.valor), 0));
+
 const reservarHorario = (agenda, novo) => {
   const conflito = agenda.some((item) => item.profissionalId === novo.profissionalId && item.inicio < novo.fim && novo.inicio < item.fim);
   if (conflito) return { status: 'conflito', aplicado: false };
@@ -118,6 +129,15 @@ const run = () => {
   assert(conciliacao.status === 'concluida' && conciliacao.diferenca === 0, 'A conciliação correta do caixa falhou.');
   assert(conciliarCaixa({ vendas: [{ total: 98 }], trocas: [{ diferenca: -20 }], valorContado: 78 }).diferenca === 0, 'O estorno financeiro não foi abatido da conciliação.');
   assert(conciliarCaixa({ vendas: [{ total: 98 }], trocas: [], valorContado: -1 }).status === 'valor_invalido', 'Um valor negativo foi aceito no caixa.');
+
+  const movimentosCaixa = [
+    gerarMovimento('loja', `${TEST_PREFIX}VENDA-CAIXA-001`, 'recebimento', 149.9),
+    gerarMovimento('mesa', `${TEST_PREFIX}MESA-CAIXA-001`, 'recebimento', 98),
+    gerarMovimento('loja', `${TEST_PREFIX}TROCA-CAIXA-001`, 'estorno', 20)
+  ];
+  assert(movimentosCaixa.every((movimento) => movimento.valor >= 0), 'Os lançamentos do caixa precisam ter valor positivo com o tipo definido.');
+  assert(movimentosCaixa.filter((movimento) => movimento.tipo === 'recebimento').length === 2, 'A venda e o pagamento de mesa não geraram recebimento no caixa.');
+  assert(totalEsperadoCaixa(movimentosCaixa) === 227.9, 'O caixa não somou os recebimentos e abateu o estorno corretamente.');
 
   const agenda = [];
   const horario = { id: `${TEST_PREFIX}AGENDA-001`, profissionalId: `${TEST_PREFIX}PROF-001`, inicio: 10, fim: 11 };
@@ -221,6 +241,7 @@ const run = () => {
   console.log(`PASS: ${TEST_PREFIX} valores, estoque e históricos`);
   console.log(`PASS: ${TEST_PREFIX} pagamentos, duplicidade e formas válidas`);
   console.log(`PASS: ${TEST_PREFIX} conciliação de caixa`);
+  console.log(`PASS: ${TEST_PREFIX} ligação entre vendas, pagamentos de mesa e caixa`);
   console.log(`PASS: ${TEST_PREFIX} conflito de horários na agenda`);
   console.log(`PASS: ${TEST_PREFIX} concorrência com ${tentativas} tentativas`);
   console.log(`PASS: ${TEST_PREFIX} idempotência e proteção contra duplicidade`);

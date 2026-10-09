@@ -246,7 +246,26 @@ export function Dashboard() {
     }
   ]);
   const [trocasLoja, setTrocasLoja] = useState<TrocaLoja[]>([]);
-  const [movimentosFinanceiros, setMovimentosFinanceiros] = useState<MovimentoFinanceiro[]>([]);
+  const [movimentosFinanceiros, setMovimentosFinanceiros] = useState<MovimentoFinanceiro[]>([
+    {
+      id: 'MOV-VDA-1001',
+      origem: 'loja',
+      referenciaId: 'VDA-1001',
+      tipo: 'recebimento',
+      formaPagamento: 'PIX',
+      valor: 149.90,
+      horario: '10:24'
+    },
+    {
+      id: 'MOV-VDA-1002',
+      origem: 'loja',
+      referenciaId: 'VDA-1002',
+      tipo: 'recebimento',
+      formaPagamento: 'Cartão',
+      valor: 219.90,
+      horario: '11:08'
+    }
+  ]);
   const pagamentosEmAndamento = useRef<Set<number>>(new Set());
   const [vendaTrocaId, setVendaTrocaId] = useState('VDA-1001');
   const [produtoDevolvidoId, setProdutoDevolvidoId] = useState('roupa-1');
@@ -541,7 +560,19 @@ export function Dashboard() {
       ? { ...item, estoque: item.estoque - 1 }
       : item));
     setVendasLoja(prev => [novaVenda, ...prev]);
-    exibirNotificacao(`Venda ${novaVenda.id} registrada com sucesso.`);
+
+    // Toda venda gera um recebimento no caixa, com a mesma referência, forma de pagamento, valor e horário.
+    setMovimentosFinanceiros(prev => [{
+      id: `MOV-${novaVenda.id}`,
+      origem: 'loja',
+      referenciaId: novaVenda.id,
+      tipo: 'recebimento',
+      formaPagamento: novaVenda.formaPagamento,
+      valor: novaVenda.total,
+      horario: novaVenda.horario
+    }, ...prev]);
+
+    exibirNotificacao(`Venda ${novaVenda.id} registrada com sucesso e recebimento lançado no caixa.`);
   };
 
   const realizarTrocaLoja = () => {
@@ -582,26 +613,63 @@ export function Dashboard() {
       return item;
     }));
     setTrocasLoja(prev => [troca, ...prev]);
+
+    // A diferença da troca entra no caixa: valor recebido do cliente ou crédito devolvido a ele.
+    if (diferenca !== 0) {
+      setMovimentosFinanceiros(prev => [{
+        id: `MOV-${troca.id}`,
+        origem: 'loja',
+        referenciaId: troca.id,
+        tipo: diferenca > 0 ? 'recebimento' : 'estorno',
+        formaPagamento: 'Dinheiro',
+        valor: Math.abs(diferenca),
+        horario: troca.horario
+      }, ...prev]);
+    }
+
     exibirNotificacao(`Troca ${troca.id} concluída${diferenca > 0 ? `; diferença a receber de R$ ${diferenca.toFixed(2)}` : diferenca < 0 ? `; crédito de R$ ${Math.abs(diferenca).toFixed(2)}` : ''}.`);
   };
 
+  const totalEsperadoCaixa = () =>
+    movimentosFinanceiros.reduce(
+      (total, movimento) => total + (movimento.tipo === 'recebimento' ? 1 : -1) * movimento.valor,
+      0
+    );
+
+  const totaisCaixaPorForma = (): Record<FormaPagamentoLoja, number> => {
+    const totais: Record<FormaPagamentoLoja, number> = { PIX: 0, 'Cartão': 0, Dinheiro: 0 };
+    movimentosFinanceiros.forEach(movimento => {
+      if (movimento.formaPagamento === 'PIX' || movimento.formaPagamento === 'Cartão' || movimento.formaPagamento === 'Dinheiro') {
+        totais[movimento.formaPagamento] += (movimento.tipo === 'recebimento' ? 1 : -1) * movimento.valor;
+      }
+    });
+    return totais;
+  };
+
+  const somarMovimentos = (origem: 'mesa' | 'loja', tipo: TipoMovimentoFinanceiro) =>
+    movimentosFinanceiros
+      .filter(movimento => movimento.origem === origem && movimento.tipo === tipo)
+      .reduce((total, movimento) => total + movimento.valor, 0);
+
+  // O caixa é calculado pelos lançamentos gerados por vendas, pagamentos de mesa e trocas.
   const conciliarCaixaLoja = () => {
-    const esperado = vendasLoja.reduce((totais, venda) => {
-      totais[venda.formaPagamento] += venda.total;
-      return totais;
-    }, { PIX: 0, Cartão: 0, Dinheiro: 0 });
-    const totalEsperado = esperado.PIX + esperado.Cartão + esperado.Dinheiro + trocasLoja.reduce((total, troca) => total + troca.diferenca, 0);
     const valorInformado = Number(valorContado);
     if (valorContado === '' || !Number.isFinite(valorInformado) || valorInformado < 0) {
       alert('Informe um valor contado válido e não negativo.');
       return;
     }
+
+    const totalEsperado = totalEsperadoCaixa();
     if (!Number.isFinite(totalEsperado)) {
       alert('Não foi possível conciliar o caixa porque o total esperado é inválido.');
       return;
     }
+
+    const recebidoMesas = somarMovimentos('mesa', 'recebimento');
+    const recebidoLoja = somarMovimentos('loja', 'recebimento');
+    const estornos = somarMovimentos('mesa', 'estorno') + somarMovimentos('loja', 'estorno');
     const diferenca = valorInformado - totalEsperado;
-    setResultadoConciliacao(`Esperado: R$ ${totalEsperado.toFixed(2)} | Contado: R$ ${valorInformado.toFixed(2)} | ${diferenca === 0 ? 'Caixa conciliado sem diferença.' : `Diferença: R$ ${diferenca.toFixed(2)}`}`);
+    setResultadoConciliacao(`Esperado: R$ ${totalEsperado.toFixed(2)} (mesas R$ ${recebidoMesas.toFixed(2)} · loja R$ ${recebidoLoja.toFixed(2)} · estornos R$ ${estornos.toFixed(2)}) | Contado: R$ ${valorInformado.toFixed(2)} | ${diferenca === 0 ? 'Caixa conciliado sem diferença.' : `Diferença: R$ ${diferenca.toFixed(2)}`}`);
   };
 
   const executarTestesSimultaneos = () => {
@@ -1398,12 +1466,30 @@ export function Dashboard() {
               <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-xl">
                 <div className="mb-4 flex items-center gap-2"><WalletCards className="h-5 w-5 text-emerald-400" /><h3 className="font-bold text-white">Conciliação de caixa</h3></div>
                 <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                  {(['PIX', 'Cartão', 'Dinheiro'] as FormaPagamentoLoja[]).map(forma => <div key={forma} className="rounded-xl bg-slate-950 p-3"><p className="text-slate-400">{forma}</p><p className="mt-1 font-mono font-bold text-emerald-400">R$ {vendasLoja.filter(v => v.formaPagamento === forma).reduce((total, v) => total + v.total, 0).toFixed(2)}</p></div>)}
+                  {(['PIX', 'Cartão', 'Dinheiro'] as FormaPagamentoLoja[]).map(forma => <div key={forma} className="rounded-xl bg-slate-950 p-3"><p className="text-slate-400">{forma}</p><p className="mt-1 font-mono font-bold text-emerald-400">R$ {totaisCaixaPorForma()[forma].toFixed(2)}</p></div>)}
                 </div>
                 <div className="mt-4 space-y-3">
                   <input type="number" step="0.01" value={valorContado} onChange={e => setValorContado(e.target.value === '' ? '' : Number(e.target.value))} className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white" placeholder="Valor contado no caixa" />
                   <button onClick={conciliarCaixaLoja} className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white hover:bg-emerald-500"><ClipboardCheck className="h-4 w-4" /> Conciliar caixa</button>
                   {resultadoConciliacao && <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-300">{resultadoConciliacao}</p>}
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Movimentações registradas</p>
+                    {movimentosFinanceiros.length === 0 ? (
+                      <p className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-xs text-slate-500">Nenhuma movimentação registrada ainda.</p>
+                    ) : (
+                      movimentosFinanceiros.slice(0, 6).map(movimento => (
+                        <div key={movimento.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950 p-3 text-xs text-slate-300">
+                          <span>
+                            <b className={movimento.tipo === 'recebimento' ? 'text-emerald-300' : 'text-rose-300'}>{movimento.tipo === 'recebimento' ? 'Recebimento' : 'Estorno'}</b>
+                            {' · '}{movimento.origem === 'mesa' ? 'Mesa' : 'Loja'}{' · '}{movimento.formaPagamento}{' · '}{movimento.referenciaId}
+                          </span>
+                          <span className={movimento.tipo === 'recebimento' ? 'font-mono font-bold text-emerald-400' : 'font-mono font-bold text-rose-400'}>
+                            {movimento.tipo === 'recebimento' ? '+' : '-'} R$ {movimento.valor.toFixed(2)}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               </section>
             </div>
