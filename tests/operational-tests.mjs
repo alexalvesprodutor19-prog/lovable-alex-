@@ -52,6 +52,22 @@ const reservarHorario = (agenda, novo) => {
   return { status: 'concluida', aplicado: true };
 };
 
+const validarPermissao = (sessao, empresaId, permissaoNecessaria) => {
+  if (!validarSessao(sessao)) return false;
+  if (sessao.empresaId !== empresaId) return false;
+  return sessao.permissao === permissaoNecessaria || sessao.permissao === 'administrador';
+};
+
+const executarOperacaoAtomica = (estado, operacao) => {
+  const copia = structuredClone(estado);
+  try {
+    const resultado = operacao(copia);
+    return { status: 'concluida', estado: copia, resultado };
+  } catch (error) {
+    return { status: 'falhou', estado, erro: error.message };
+  }
+};
+
 const run = () => {
   const sessao = criarSessaoTeste();
   assert(validarSessao(sessao), 'A sessão autenticada de teste não foi validada.');
@@ -161,6 +177,32 @@ const run = () => {
   const respostaIncerta = simularOperacaoComConexao(false, () => ({ id: chaveResultadoIncerto }));
   assert(respostaIncerta.status === 'incerto', 'O resultado incerto não foi preservado.');
   assert(!tentativasResultadoIncerto.has(chaveResultadoIncerto), 'Um resultado incerto foi registrado como concluído.');
+
+  const sessaoEmpresaA = { ...sessao, empresaId: `${TEST_PREFIX}EMPRESA-A`, permissao: 'operador' };
+  const sessaoEmpresaB = { ...sessao, empresaId: `${TEST_PREFIX}EMPRESA-B`, permissao: 'operador' };
+  const sessaoAdministrador = { ...sessao, empresaId: `${TEST_PREFIX}EMPRESA-A`, permissao: 'administrador' };
+  assert(validarPermissao(sessaoEmpresaA, `${TEST_PREFIX}EMPRESA-A`, 'operador'), 'O operador autorizado não recebeu acesso à própria empresa.');
+  assert(!validarPermissao(sessaoEmpresaA, `${TEST_PREFIX}EMPRESA-B`, 'operador'), 'O operador acessou dados de outra empresa.');
+  assert(!validarPermissao(sessaoEmpresaB, `${TEST_PREFIX}EMPRESA-A`, 'operador'), 'A sessão de uma empresa foi aceita em outra empresa.');
+  assert(validarPermissao(sessaoAdministrador, `${TEST_PREFIX}EMPRESA-A`, 'operador'), 'O administrador não recebeu a permissão operacional esperada.');
+
+  const estoqueInicial = { unidades: 2, historico: [] };
+  const operacaoConcluida = executarOperacaoAtomica(estoqueInicial, (estado) => {
+    estado.unidades -= 1;
+    estado.historico.push(`${TEST_PREFIX}BAIXA-001`);
+    return true;
+  });
+  assert(operacaoConcluida.status === 'concluida', 'A operação atômica válida não foi concluída.');
+  assert(operacaoConcluida.estado.unidades === 1 && operacaoConcluida.estado.historico.length === 1, 'A operação atômica válida não atualizou o estado completo.');
+  assert(estoqueInicial.unidades === 2 && estoqueInicial.historico.length === 0, 'A operação atômica alterou o estado original antes da confirmação.');
+
+  const operacaoFalha = executarOperacaoAtomica(estoqueInicial, (estado) => {
+    estado.unidades -= 2;
+    estado.historico.push(`${TEST_PREFIX}BAIXA-INCOMPLETA`);
+    throw new Error('falha simulada');
+  });
+  assert(operacaoFalha.status === 'falhou', 'A falha da operação atômica não foi identificada.');
+  assert(operacaoFalha.estado.unidades === 2 && operacaoFalha.estado.historico.length === 0, 'Uma operação incompleta deixou alteração parcial no estado.');
 
   const viewports = [
     { nome: 'celular', largura: 390 },
