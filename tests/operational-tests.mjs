@@ -27,6 +27,31 @@ const simularOperacaoComConexao = (conectada, operacao) => {
   return { status: 'concluida', aplicado: operacao() };
 };
 
+const formasPagamentoAceitas = new Set(['PIX', 'Cartão', 'Dinheiro']);
+
+const processarPagamento = ({ mesaStatus, pedidos, formaPagamento, jaProcessando = false }) => {
+  if (jaProcessando) return { status: 'duplicado', aplicado: false };
+  if (!formasPagamentoAceitas.has(formaPagamento)) return { status: 'forma_invalida', aplicado: false };
+  if (!['ocupada', 'pagamento'].includes(mesaStatus)) return { status: 'mesa_indisponivel', aplicado: false };
+  const total = pedidos.reduce((soma, pedido) => soma + pedido.total, 0);
+  if (!Number.isFinite(total) || total <= 0) return { status: 'total_invalido', aplicado: false };
+  return { status: 'concluida', aplicado: true, total: money(total) };
+};
+
+const conciliarCaixa = ({ vendas, trocas, valorContado }) => {
+  if (!Number.isFinite(valorContado) || valorContado < 0) return { status: 'valor_invalido' };
+  const esperado = vendas.reduce((total, venda) => total + venda.total, 0) + trocas.reduce((total, troca) => total + troca.diferenca, 0);
+  if (!Number.isFinite(esperado)) return { status: 'total_invalido' };
+  return { status: 'concluida', esperado: money(esperado), diferenca: money(valorContado - esperado) };
+};
+
+const reservarHorario = (agenda, novo) => {
+  const conflito = agenda.some((item) => item.profissionalId === novo.profissionalId && item.inicio < novo.fim && novo.inicio < item.fim);
+  if (conflito) return { status: 'conflito', aplicado: false };
+  agenda.push(novo);
+  return { status: 'concluida', aplicado: true };
+};
+
 const run = () => {
   const sessao = criarSessaoTeste();
   assert(validarSessao(sessao), 'A sessão autenticada de teste não foi validada.');
@@ -62,6 +87,26 @@ const run = () => {
   assert(money(totalVenda) === 98, 'O total da venda de teste está incorreto.');
   assert(registros[0].estoqueAntes - registros[0].estoqueDepois === 3, 'A baixa de estoque não corresponde aos itens vendidos.');
   assert(registros[1].status === 'concluida' && Number.isFinite(registros[1].diferenca), 'O histórico de troca está inconsistente.');
+
+  const pagamento = processarPagamento({
+    mesaStatus: 'ocupada',
+    pedidos: [{ total: 98 }],
+    formaPagamento: 'PIX'
+  });
+  assert(pagamento.status === 'concluida' && pagamento.total === 98, 'O pagamento válido não foi concluído corretamente.');
+  assert(processarPagamento({ mesaStatus: 'ocupada', pedidos: [{ total: 98 }], formaPagamento: 'PIX', jaProcessando: true }).status === 'duplicado', 'O clique duplicado gerou um segundo pagamento.');
+  assert(processarPagamento({ mesaStatus: 'livre', pedidos: [{ total: 98 }], formaPagamento: 'PIX' }).aplicado === false, 'Uma mesa livre foi aceita para pagamento.');
+  assert(processarPagamento({ mesaStatus: 'ocupada', pedidos: [{ total: 98 }], formaPagamento: 'Boleto' }).aplicado === false, 'Uma forma de pagamento inválida foi aceita.');
+
+  const conciliacao = conciliarCaixa({ vendas: [{ total: 98 }], trocas: [{ diferenca: 15.9 }], valorContado: 113.9 });
+  assert(conciliacao.status === 'concluida' && conciliacao.diferenca === 0, 'A conciliação correta do caixa falhou.');
+  assert(conciliarCaixa({ vendas: [{ total: 98 }], trocas: [], valorContado: -1 }).status === 'valor_invalido', 'Um valor negativo foi aceito no caixa.');
+
+  const agenda = [];
+  const horario = { id: `${TEST_PREFIX}AGENDA-001`, profissionalId: `${TEST_PREFIX}PROF-001`, inicio: 10, fim: 11 };
+  assert(reservarHorario(agenda, horario).aplicado, 'O primeiro horário disponível não foi reservado.');
+  assert(!reservarHorario(agenda, { ...horario, id: `${TEST_PREFIX}AGENDA-002`, inicio: 10.5, fim: 11.5 }).aplicado, 'A agenda aceitou dois horários conflitantes.');
+  assert(reservarHorario(agenda, { ...horario, id: `${TEST_PREFIX}AGENDA-003`, inicio: 11, fim: 12 }).aplicado, 'A agenda bloqueou indevidamente um horário consecutivo.');
 
   const tentativas = 1000;
   let estoque = 1;
@@ -131,6 +176,9 @@ const run = () => {
 
   console.log(`PASS: ${TEST_PREFIX} sessão autenticada simulada e isolamento de registros`);
   console.log(`PASS: ${TEST_PREFIX} valores, estoque e históricos`);
+  console.log(`PASS: ${TEST_PREFIX} pagamentos, duplicidade e formas válidas`);
+  console.log(`PASS: ${TEST_PREFIX} conciliação de caixa`);
+  console.log(`PASS: ${TEST_PREFIX} conflito de horários na agenda`);
   console.log(`PASS: ${TEST_PREFIX} concorrência com ${tentativas} tentativas`);
   console.log(`PASS: ${TEST_PREFIX} idempotência e proteção contra duplicidade`);
   console.log(`PASS: ${TEST_PREFIX} sessão expirada e conexão interrompida`);

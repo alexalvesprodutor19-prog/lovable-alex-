@@ -408,43 +408,54 @@ export function Dashboard() {
       return;
     }
 
-    pagamentosEmAndamento.current.add(mesaId);
+    const formasAceitas = new Set(['PIX', 'Cartão', 'Dinheiro']);
+    if (!formasAceitas.has(formaPagamento)) {
+      exibirNotificacao('Forma de pagamento inválida. Escolha PIX, Cartão ou Dinheiro.');
+      return;
+    }
+
     const mesa = mesas.find(m => m.id === mesaId);
-    if (!mesa) {
-      pagamentosEmAndamento.current.delete(mesaId);
+    if (!mesa || (mesa.status !== 'ocupada' && mesa.status !== 'pagamento')) {
+      exibirNotificacao(`A Mesa ${mesaId} não está disponível para pagamento.`);
       return;
     }
 
-    // Consolida os pedidos da mesa sem duplicar os pedidos presentes no KDS e na comanda
-    const todosPedidos = obterPedidosDaMesa(mesaId);
-    if (todosPedidos.length === 0) {
-      pagamentosEmAndamento.current.delete(mesaId);
-      exibirNotificacao(`A Mesa ${mesaId} não possui consumo registrado para pagamento.`);
-      return;
-    }
-
-    const subtotal = todosPedidos.reduce((acc, p) => acc + p.total, 0);
-    const taxa = aplicarDezPorcento ? subtotal * 0.10 : 0;
-    const totalComTaxa = subtotal + taxa;
-
-    // Reseta Mesa para livre
-    setMesas(prev => prev.map(m => {
-      if (m.id === mesaId) {
-        return {
-          ...m,
-          status: 'livre',
-          comandaCliente: undefined,
-          pedidos: []
-        };
+    pagamentosEmAndamento.current.add(mesaId);
+    try {
+      // Consolida os pedidos da mesa sem duplicar os pedidos presentes no KDS e na comanda
+      const todosPedidos = obterPedidosDaMesa(mesaId);
+      if (todosPedidos.length === 0) {
+        exibirNotificacao(`A Mesa ${mesaId} não possui consumo registrado para pagamento.`);
+        return;
       }
-      return m;
-    }));
 
-    // Remove pedidos da produção finalizados
-    setPedidosProducao(prev => prev.filter(p => p.mesaId !== mesaId));
-    pagamentosEmAndamento.current.delete(mesaId);
+      const subtotal = todosPedidos.reduce((acc, p) => acc + p.total, 0);
+      const taxa = aplicarDezPorcento ? subtotal * 0.10 : 0;
+      const totalComTaxa = subtotal + taxa;
+      if (!Number.isFinite(totalComTaxa) || totalComTaxa <= 0) {
+        exibirNotificacao('Não foi possível concluir o pagamento: total inválido.');
+        return;
+      }
 
-    exibirNotificacao(`Pagamento de R$ ${totalComTaxa.toFixed(2)} (${formaPagamento}) concluído! Mesa ${mesaId} liberada.`);
+      // Reseta Mesa para livre somente depois de validar todo o pagamento
+      setMesas(prev => prev.map(m => {
+        if (m.id === mesaId) {
+          return {
+            ...m,
+            status: 'livre',
+            comandaCliente: undefined,
+            pedidos: []
+          };
+        }
+        return m;
+      }));
+
+      // Remove pedidos da produção finalizados
+      setPedidosProducao(prev => prev.filter(p => p.mesaId !== mesaId));
+      exibirNotificacao(`Pagamento de R$ ${totalComTaxa.toFixed(2)} (${formaPagamento}) concluído! Mesa ${mesaId} liberada.`);
+    } finally {
+      pagamentosEmAndamento.current.delete(mesaId);
+    }
   };
 
   // Operações da loja de roupas
@@ -520,12 +531,17 @@ export function Dashboard() {
       return totais;
     }, { PIX: 0, Cartão: 0, Dinheiro: 0 });
     const totalEsperado = esperado.PIX + esperado.Cartão + esperado.Dinheiro + trocasLoja.reduce((total, troca) => total + troca.diferenca, 0);
-    if (valorContado === '') {
-      alert('Informe o valor contado no caixa.');
+    const valorInformado = Number(valorContado);
+    if (valorContado === '' || !Number.isFinite(valorInformado) || valorInformado < 0) {
+      alert('Informe um valor contado válido e não negativo.');
       return;
     }
-    const diferenca = Number(valorContado) - totalEsperado;
-    setResultadoConciliacao(`Esperado: R$ ${totalEsperado.toFixed(2)} | Contado: R$ ${Number(valorContado).toFixed(2)} | ${diferenca === 0 ? 'Caixa conciliado sem diferença.' : `Diferença: R$ ${diferenca.toFixed(2)}`}`);
+    if (!Number.isFinite(totalEsperado)) {
+      alert('Não foi possível conciliar o caixa porque o total esperado é inválido.');
+      return;
+    }
+    const diferenca = valorInformado - totalEsperado;
+    setResultadoConciliacao(`Esperado: R$ ${totalEsperado.toFixed(2)} | Contado: R$ ${valorInformado.toFixed(2)} | ${diferenca === 0 ? 'Caixa conciliado sem diferença.' : `Diferença: R$ ${diferenca.toFixed(2)}`}`);
   };
 
   const executarTestesSimultaneos = () => {
