@@ -1185,19 +1185,42 @@ export function Dashboard() {
               <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-xl">
                 <div className="mb-4 flex items-center gap-2"><ArrowLeftRight className="h-5 w-5 text-amber-400" /><h3 className="font-bold text-white">Troca completa</h3></div>
                 <div className="space-y-3">
-                  <select value={vendaTrocaId} onChange={e => setVendaTrocaId(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white">
+                  <select
+                    value={vendaTrocaId}
+                    onChange={e => {
+                      const id = e.target.value;
+                      const venda = vendasLoja.find(item => item.id === id);
+                      const produtoDevolvido = venda?.itens[0]?.produtoId ?? '';
+                      const produtoNovo = produtosLoja.find(produto => produto.id !== produtoDevolvido && produto.estoque > 0)?.id ?? '';
+                      setVendaTrocaId(id);
+                      setProdutoDevolvidoId(produtoDevolvido);
+                      setProdutoNovoId(produtoNovo);
+                    }}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white"
+                  >
                     {vendasLoja.map(venda => <option key={venda.id} value={venda.id}>{venda.id} · {venda.cliente} · R$ {venda.total.toFixed(2)}</option>)}
                   </select>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <select value={produtoDevolvidoId} onChange={e => setProdutoDevolvidoId(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white">
-                      {produtosLoja.map(produto => <option key={produto.id} value={produto.id}>Devolver: {produto.nome}</option>)}
+                      {vendasLoja.find(venda => venda.id === vendaTrocaId)?.itens.map(item => {
+                        const produto = produtosLoja.find(candidate => candidate.id === item.produtoId);
+                        return produto ? <option key={produto.id} value={produto.id}>Devolver: {produto.nome}</option> : null;
+                      })}
                     </select>
                     <select value={produtoNovoId} onChange={e => setProdutoNovoId(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white">
-                      {produtosLoja.map(produto => <option key={produto.id} value={produto.id}>Levar: {produto.nome}</option>)}
+                      {produtosLoja
+                        .filter(produto => produto.id !== produtoDevolvidoId && produto.estoque > 0)
+                        .map(produto => <option key={produto.id} value={produto.id}>Levar: {produto.nome}</option>)}
                     </select>
                   </div>
                   <input type="number" min="1" value={quantidadeTroca} onChange={e => setQuantidadeTroca(Number(e.target.value))} className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white" placeholder="Quantidade" />
-                  <button onClick={realizarTrocaLoja} className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-600 py-3 text-sm font-bold text-slate-950 hover:bg-amber-500"><ArrowLeftRight className="h-4 w-4" /> Confirmar troca</button>
+                  <button
+                    onClick={realizarTrocaLoja}
+                    disabled={!produtoDevolvidoId || !produtoNovoId || produtoDevolvidoId === produtoNovoId}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-600 py-3 text-sm font-bold text-slate-950 hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <ArrowLeftRight className="h-4 w-4" /> Confirmar troca
+                  </button>
                 </div>
                 <div className="mt-4 space-y-2">
                   {trocasLoja.slice(0, 4).map(troca => <div key={troca.id} className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-xs text-slate-300"><b className="text-white">{troca.id}</b> · {troca.produtoDevolvido} por {troca.produtoNovo} · {troca.diferenca >= 0 ? `Receber R$ ${troca.diferenca.toFixed(2)}` : `Crédito R$ ${Math.abs(troca.diferenca).toFixed(2)}`}</div>)}
