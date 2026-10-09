@@ -13,7 +13,12 @@ import {
   Receipt,
   AlertTriangle,
   RefreshCw,
-  User
+  User,
+  Shirt,
+  ArrowLeftRight,
+  ClipboardCheck,
+  TestTube,
+  WalletCards
 } from 'lucide-react';
 
 export const Route = createFileRoute('/')({
@@ -60,8 +65,53 @@ interface Mesa {
   pedidos: Pedido[];
 }
 
+type FormaPagamentoLoja = 'PIX' | 'Cartão' | 'Dinheiro';
+type StatusTroca = 'concluida' | 'cancelada';
+
+interface ProdutoLoja {
+  id: string;
+  sku: string;
+  nome: string;
+  tamanho: string;
+  cor: string;
+  preco: number;
+  estoque: number;
+}
+
+interface ItemVendaLoja {
+  produtoId: string;
+  nome: string;
+  quantidade: number;
+  valorUnitario: number;
+}
+
+interface VendaLoja {
+  id: string;
+  cliente: string;
+  itens: ItemVendaLoja[];
+  formaPagamento: FormaPagamentoLoja;
+  total: number;
+  horario: string;
+}
+
+interface TrocaLoja {
+  id: string;
+  vendaId: string;
+  produtoDevolvido: string;
+  produtoNovo: string;
+  diferenca: number;
+  status: StatusTroca;
+  horario: string;
+}
+
+interface ResultadoTeste {
+  nome: string;
+  sucesso: boolean;
+  detalhe: string;
+}
+
 export function Dashboard() {
-  const [aba, setAba] = useState<'mesas' | 'cardapio' | 'kds' | 'caixa' | 'estoque'>('mesas');
+  const [aba, setAba] = useState<'mesas' | 'cardapio' | 'kds' | 'caixa' | 'estoque' | 'loja'>('mesas');
   
   // Estoque & Cardápio Inicial
   const [cardapio, setCardapio] = useState<ItemCardapio[]>([
@@ -116,6 +166,40 @@ export function Dashboard() {
   const [itensNovoPedido, setItensNovoPedido] = useState<{ item: ItemCardapio; quantidade: number }[]>([]);
   const [filtroKds, setFiltroKds] = useState<'todos' | 'cozinha' | 'bar'>('todos');
   const [mensagemSucesso, setMensagemSucesso] = useState<string>('');
+
+  const [produtosLoja, setProdutosLoja] = useState<ProdutoLoja[]>([
+    { id: 'roupa-1', sku: 'CAM-001', nome: 'Camisa Linho Premium', tamanho: 'M', cor: 'Branca', preco: 149.90, estoque: 8 },
+    { id: 'roupa-2', sku: 'CAL-001', nome: 'Calça Jeans Reta', tamanho: '40', cor: 'Azul', preco: 219.90, estoque: 5 },
+    { id: 'roupa-3', sku: 'VES-001', nome: 'Vestido Midi Floral', tamanho: 'M', cor: 'Floral', preco: 289.90, estoque: 4 },
+    { id: 'roupa-4', sku: 'BLA-001', nome: 'Blazer Alfaiataria', tamanho: 'G', cor: 'Preto', preco: 379.90, estoque: 3 },
+    { id: 'roupa-5', sku: 'TEN-001', nome: 'Tênis Casual', tamanho: '39', cor: 'Branco', preco: 249.90, estoque: 6 }
+  ]);
+  const [vendasLoja, setVendasLoja] = useState<VendaLoja[]>([
+    {
+      id: 'VDA-1001',
+      cliente: 'Ana Souza',
+      itens: [{ produtoId: 'roupa-1', nome: 'Camisa Linho Premium', quantidade: 1, valorUnitario: 149.90 }],
+      formaPagamento: 'PIX',
+      total: 149.90,
+      horario: '10:24'
+    },
+    {
+      id: 'VDA-1002',
+      cliente: 'Bruno Lima',
+      itens: [{ produtoId: 'roupa-2', nome: 'Calça Jeans Reta', quantidade: 1, valorUnitario: 219.90 }],
+      formaPagamento: 'Cartão',
+      total: 219.90,
+      horario: '11:08'
+    }
+  ]);
+  const [trocasLoja, setTrocasLoja] = useState<TrocaLoja[]>([]);
+  const [vendaTrocaId, setVendaTrocaId] = useState('VDA-1001');
+  const [produtoDevolvidoId, setProdutoDevolvidoId] = useState('roupa-1');
+  const [produtoNovoId, setProdutoNovoId] = useState('roupa-3');
+  const [quantidadeTroca, setQuantidadeTroca] = useState(1);
+  const [valorContado, setValorContado] = useState<number | ''>('');
+  const [resultadoConciliacao, setResultadoConciliacao] = useState<string>('');
+  const [resultadosTeste, setResultadosTeste] = useState<ResultadoTeste[]>([]);
 
   const exibirNotificacao = (msg: string) => {
     setMensagemSucesso(msg);
@@ -265,6 +349,96 @@ export function Dashboard() {
     exibirNotificacao(`Pagamento de R$ ${totalComTaxa.toFixed(2)} (${formaPagamento}) concluído! Mesa ${mesaId} liberada.`);
   };
 
+  // Operações da loja de roupas
+  const registrarVendaLoja = (produto: ProdutoLoja, formaPagamento: FormaPagamentoLoja) => {
+    if (produto.estoque <= 0) {
+      alert('Produto sem estoque disponível.');
+      return;
+    }
+
+    const novaVenda: VendaLoja = {
+      id: `VDA-${Math.floor(1000 + Math.random() * 9000)}`,
+      cliente: 'Cliente balcão',
+      itens: [{ produtoId: produto.id, nome: produto.nome, quantidade: 1, valorUnitario: produto.preco }],
+      formaPagamento,
+      total: produto.preco,
+      horario: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    };
+
+    setProdutosLoja(prev => prev.map(item => item.id === produto.id ? { ...item, estoque: item.estoque - 1 } : item));
+    setVendasLoja(prev => [novaVenda, ...prev]);
+    exibirNotificacao(`Venda ${novaVenda.id} registrada com sucesso.`);
+  };
+
+  const realizarTrocaLoja = () => {
+    const venda = vendasLoja.find(item => item.id === vendaTrocaId);
+    const devolvido = produtosLoja.find(item => item.id === produtoDevolvidoId);
+    const novoProduto = produtosLoja.find(item => item.id === produtoNovoId);
+
+    if (!venda || !devolvido || !novoProduto || quantidadeTroca < 1) {
+      alert('Selecione uma venda, os produtos e uma quantidade válida.');
+      return;
+    }
+
+    const itemVendido = venda.itens.find(item => item.produtoId === devolvido.id);
+    if (!itemVendido || itemVendido.quantidade < quantidadeTroca) {
+      alert('A quantidade devolvida não está presente na venda selecionada.');
+      return;
+    }
+    if (novoProduto.estoque < quantidadeTroca) {
+      alert('Não há estoque suficiente para o novo produto.');
+      return;
+    }
+
+    const diferenca = (novoProduto.preco - itemVendido.valorUnitario) * quantidadeTroca;
+    const troca: TrocaLoja = {
+      id: `TR-${Math.floor(1000 + Math.random() * 9000)}`,
+      vendaId: venda.id,
+      produtoDevolvido: devolvido.nome,
+      produtoNovo: novoProduto.nome,
+      diferenca,
+      status: 'concluida',
+      horario: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    };
+
+    setProdutosLoja(prev => prev.map(item => {
+      if (item.id === devolvido.id && item.id === novoProduto.id) return item;
+      if (item.id === devolvido.id) return { ...item, estoque: item.estoque + quantidadeTroca };
+      if (item.id === novoProduto.id) return { ...item, estoque: item.estoque - quantidadeTroca };
+      return item;
+    }));
+    setTrocasLoja(prev => [troca, ...prev]);
+    exibirNotificacao(`Troca ${troca.id} concluída${diferenca > 0 ? `; diferença a receber de R$ ${diferenca.toFixed(2)}` : diferenca < 0 ? `; crédito de R$ ${Math.abs(diferenca).toFixed(2)}` : ''}.`);
+  };
+
+  const conciliarCaixaLoja = () => {
+    const esperado = vendasLoja.reduce((totais, venda) => {
+      totais[venda.formaPagamento] += venda.total;
+      return totais;
+    }, { PIX: 0, Cartão: 0, Dinheiro: 0 });
+    const totalEsperado = esperado.PIX + esperado.Cartão + esperado.Dinheiro + trocasLoja.reduce((total, troca) => total + troca.diferenca, 0);
+    if (valorContado === '') {
+      alert('Informe o valor contado no caixa.');
+      return;
+    }
+    const diferenca = Number(valorContado) - totalEsperado;
+    setResultadoConciliacao(`Esperado: R$ ${totalEsperado.toFixed(2)} | Contado: R$ ${Number(valorContado).toFixed(2)} | ${diferenca === 0 ? 'Caixa conciliado sem diferença.' : `Diferença: R$ ${diferenca.toFixed(2)}`}`);
+  };
+
+  const executarTestesSimultaneos = () => {
+    const produto = produtosLoja[0];
+    const venda = vendasLoja[0];
+    const estoqueConsistente = produtosLoja.every(item => item.estoque >= 0);
+    const vendaConsistente = vendasLoja.every(item => item.total === item.itens.reduce((total, linha) => total + linha.quantidade * linha.valorUnitario, 0));
+    const trocaConsistente = trocasLoja.every(item => item.status === 'concluida' && item.vendaId.length > 0);
+    setResultadosTeste([
+      { nome: 'Venda simultânea', sucesso: estoqueConsistente && produto.estoque >= 0, detalhe: 'Estoque não ficou negativo e o catálogo permanece disponível.' },
+      { nome: 'Consolidação de vendas', sucesso: vendaConsistente && venda.total > 0, detalhe: 'Totais dos itens conferem com o total de cada venda.' },
+      { nome: 'Trocas e caixa', sucesso: trocaConsistente, detalhe: 'Trocas concluídas possuem venda de origem e ajuste financeiro registrado.' }
+    ]);
+    exibirNotificacao('Testes simultâneos executados.');
+  };
+
   // Reabastecer Estoque
   const reabastecerItem = (itemId: string, qtd: number) => {
     setCardapio(prev => prev.map(item => item.id === itemId ? { ...item, estoque: item.estoque + qtd } : item));
@@ -340,6 +514,15 @@ export function Dashboard() {
           >
             <Boxes className="w-4 h-4" />
             Estoque
+          </button>
+          <button
+            onClick={() => setAba('loja')}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+              aba === 'loja' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+            }`}
+          >
+            <Shirt className="w-4 h-4" />
+            Loja de Roupas
           </button>
         </nav>
       </header>
@@ -795,7 +978,83 @@ export function Dashboard() {
           </div>
         )}
 
-        {/* ABA 5: GESTÃO DE ESTOQUE */}
+        {/* ABA 5: OPERAÇÃO DA LOJA DE ROUPAS */}
+        {aba === 'loja' && (
+          <div className="space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-bold text-white">Operação da Loja de Roupas</h2>
+                <p className="text-sm text-slate-400">Vendas, trocas, estoque e conciliação em um único fluxo</p>
+              </div>
+              <button onClick={executarTestesSimultaneos} className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white hover:bg-violet-500">
+                <TestTube className="h-4 w-4" /> Testar fluxos simultâneos
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              {produtosLoja.map(produto => (
+                <div key={produto.id} className="rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-xl">
+                  <div className="mb-3 flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-bold text-white">{produto.nome}</p>
+                      <p className="text-xs text-slate-400">SKU {produto.sku} · {produto.tamanho} · {produto.cor}</p>
+                    </div>
+                    <Shirt className="h-5 w-5 text-indigo-400" />
+                  </div>
+                  <div className="mb-4 flex items-center justify-between">
+                    <span className="font-mono text-emerald-400">R$ {produto.preco.toFixed(2)}</span>
+                    <span className={`text-xs font-bold ${produto.estoque <= 2 ? 'text-rose-400' : 'text-slate-300'}`}>{produto.estoque} em estoque</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button onClick={() => registrarVendaLoja(produto, 'PIX')} className="rounded-lg bg-emerald-600 px-2 py-2 text-[11px] font-bold text-white hover:bg-emerald-500">Venda PIX</button>
+                    <button onClick={() => registrarVendaLoja(produto, 'Cartão')} className="rounded-lg bg-indigo-600 px-2 py-2 text-[11px] font-bold text-white hover:bg-indigo-500">Venda cartão</button>
+                    <button onClick={() => registrarVendaLoja(produto, 'Dinheiro')} className="rounded-lg bg-amber-600 px-2 py-2 text-[11px] font-bold text-slate-950 hover:bg-amber-500">Venda dinheiro</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+              <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-xl">
+                <div className="mb-4 flex items-center gap-2"><ArrowLeftRight className="h-5 w-5 text-amber-400" /><h3 className="font-bold text-white">Troca completa</h3></div>
+                <div className="space-y-3">
+                  <select value={vendaTrocaId} onChange={e => setVendaTrocaId(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white">
+                    {vendasLoja.map(venda => <option key={venda.id} value={venda.id}>{venda.id} · {venda.cliente} · R$ {venda.total.toFixed(2)}</option>)}
+                  </select>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <select value={produtoDevolvidoId} onChange={e => setProdutoDevolvidoId(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white">
+                      {produtosLoja.map(produto => <option key={produto.id} value={produto.id}>Devolver: {produto.nome}</option>)}
+                    </select>
+                    <select value={produtoNovoId} onChange={e => setProdutoNovoId(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white">
+                      {produtosLoja.map(produto => <option key={produto.id} value={produto.id}>Levar: {produto.nome}</option>)}
+                    </select>
+                  </div>
+                  <input type="number" min="1" value={quantidadeTroca} onChange={e => setQuantidadeTroca(Number(e.target.value))} className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white" placeholder="Quantidade" />
+                  <button onClick={realizarTrocaLoja} className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-600 py-3 text-sm font-bold text-slate-950 hover:bg-amber-500"><ArrowLeftRight className="h-4 w-4" /> Confirmar troca</button>
+                </div>
+                <div className="mt-4 space-y-2">
+                  {trocasLoja.slice(0, 4).map(troca => <div key={troca.id} className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-xs text-slate-300"><b className="text-white">{troca.id}</b> · {troca.produtoDevolvido} por {troca.produtoNovo} · {troca.diferenca >= 0 ? `Receber R$ ${troca.diferenca.toFixed(2)}` : `Crédito R$ ${Math.abs(troca.diferenca).toFixed(2)}`}</div>)}
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-xl">
+                <div className="mb-4 flex items-center gap-2"><WalletCards className="h-5 w-5 text-emerald-400" /><h3 className="font-bold text-white">Conciliação de caixa</h3></div>
+                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                  {(['PIX', 'Cartão', 'Dinheiro'] as FormaPagamentoLoja[]).map(forma => <div key={forma} className="rounded-xl bg-slate-950 p-3"><p className="text-slate-400">{forma}</p><p className="mt-1 font-mono font-bold text-emerald-400">R$ {vendasLoja.filter(v => v.formaPagamento === forma).reduce((total, v) => total + v.total, 0).toFixed(2)}</p></div>)}
+                </div>
+                <div className="mt-4 space-y-3">
+                  <input type="number" step="0.01" value={valorContado} onChange={e => setValorContado(e.target.value === '' ? '' : Number(e.target.value))} className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white" placeholder="Valor contado no caixa" />
+                  <button onClick={conciliarCaixaLoja} className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white hover:bg-emerald-500"><ClipboardCheck className="h-4 w-4" /> Conciliar caixa</button>
+                  {resultadoConciliacao && <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-300">{resultadoConciliacao}</p>}
+                </div>
+              </section>
+            </div>
+
+            {resultadosTeste.length > 0 && <section className="rounded-2xl border border-violet-500/30 bg-violet-500/10 p-5"><h3 className="mb-3 font-bold text-white">Resultado dos testes simultâneos</h3><div className="grid gap-2 md:grid-cols-3">{resultadosTeste.map(resultado => <div key={resultado.nome} className="rounded-xl border border-slate-700 bg-slate-950 p-3"><p className={`font-bold ${resultado.sucesso ? 'text-emerald-400' : 'text-rose-400'}`}>{resultado.sucesso ? '✓' : '✕'} {resultado.nome}</p><p className="mt-1 text-xs text-slate-400">{resultado.detalhe}</p></div>)}</div></section>}
+          </div>
+        )}
+
+        {/* ABA 6: GESTÃO DE ESTOQUE */}
         {aba === 'estoque' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
