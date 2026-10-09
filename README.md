@@ -22,6 +22,29 @@ npm install
 npm run dev
 ```
 
-O cliente mantém a sessão no navegador, renova tokens automaticamente e detecta sessões retornadas pela URL. A tela principal informa se o cliente está configurado e consegue verificar a sessão de autenticação.
+O cliente mantém a sessão no navegador, renova tokens automaticamente e detecta sessões retornadas pela URL.
 
-As operações do domínio ainda permanecem em memória porque o projeto não possui estrutura de tabelas e políticas de segurança definida. Para persistir esses dados, será necessário criar no Supabase o modelo de dados correspondente ao negócio e suas políticas RLS antes de adicionar as consultas de vendas, estoque, mesas, pagamentos, trocas e caixa.
+## Estrutura compartilhada de dados
+
+O arquivo `supabase/schema.sql` contém a estrutura inicial para aplicar no SQL Editor do Supabase. Ele cria:
+
+- empresas e perfis de usuários vinculados ao cadastro de autenticação;
+- produtos e estoque compartilhado;
+- mesas, pedidos e itens de pedidos;
+- vendas e itens de vendas;
+- pagamentos com chave de idempotência;
+- trocas e diferenças financeiras;
+- movimentações de caixa;
+- índices, validações, gatilho de atualização e políticas RLS por empresa.
+
+Para aplicar a estrutura:
+
+1. Crie ou abra um projeto no Supabase.
+2. Configure `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY` no ambiente do app.
+3. Abra o SQL Editor do Supabase.
+4. Cole o conteúdo de `supabase/schema.sql` e execute uma única vez.
+5. Crie uma conta pelo Supabase Auth; o gatilho criará automaticamente uma empresa e um perfil administrador para o usuário.
+
+As políticas RLS impedem que um usuário autenticado leia ou altere registros de outra empresa. As chaves de idempotência em pedidos, vendas, pagamentos, trocas e caixa devem ser preenchidas pelo fluxo da aplicação para evitar gravações duplicadas após clique repetido ou resultado incerto.
+
+A interface atual ainda mantém os dados operacionais em memória. Depois de aplicar o schema, os handlers da tela principal precisam substituir os estados locais pelas consultas ao Supabase e executar as operações críticas em funções transacionais ou RPCs para que vendas, estoque, pagamentos, trocas e caixa sejam confirmados de forma atômica.
