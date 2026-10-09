@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   UtensilsCrossed,
   Beer,
@@ -18,7 +18,8 @@ import {
   ArrowLeftRight,
   ClipboardCheck,
   TestTube,
-  WalletCards
+  WalletCards,
+  QrCode
 } from 'lucide-react';
 
 export const Route = createFileRoute('/')({
@@ -63,6 +64,11 @@ interface Mesa {
   status: StatusMesa;
   comandaCliente?: string;
   pedidos: Pedido[];
+}
+
+interface AcessoQrMesa {
+  mesaId: number;
+  url: string;
 }
 
 type FormaPagamentoLoja = 'PIX' | 'Cartão' | 'Dinheiro';
@@ -166,6 +172,7 @@ export function Dashboard() {
   const [itensNovoPedido, setItensNovoPedido] = useState<{ item: ItemCardapio; quantidade: number }[]>([]);
   const [filtroKds, setFiltroKds] = useState<'todos' | 'cozinha' | 'bar'>('todos');
   const [mensagemSucesso, setMensagemSucesso] = useState<string>('');
+  const [qrMesaId, setQrMesaId] = useState(1);
 
   const [produtosLoja, setProdutosLoja] = useState<ProdutoLoja[]>([
     { id: 'roupa-1', sku: 'CAM-001', nome: 'Camisa Linho Premium', tamanho: 'M', cor: 'Branca', preco: 149.90, estoque: 8 },
@@ -204,6 +211,39 @@ export function Dashboard() {
   const exibirNotificacao = (msg: string) => {
     setMensagemSucesso(msg);
     setTimeout(() => setMensagemSucesso(''), 4000);
+  };
+
+  useEffect(() => {
+    const mesaParam = new URLSearchParams(window.location.search).get('mesa');
+    const mesaId = Number(mesaParam);
+    if (mesaParam && mesas.some(mesa => mesa.id === mesaId)) {
+      setMesaSelecionadaId(mesaId);
+      setQrMesaId(mesaId);
+      setAba('cardapio');
+      exibirNotificacao(`Comanda da Mesa ${mesaId} carregada pelo QR Code.`);
+    }
+  }, []);
+
+  const obterLinkQrMesa = (mesaId: number): string => {
+    const origem = typeof window === 'undefined' ? '' : window.location.origin;
+    return `${origem}/?mesa=${mesaId}&pedido=1`;
+  };
+
+  const copiarLinkQrMesa = async (mesaId: number) => {
+    const link = obterLinkQrMesa(mesaId);
+    try {
+      await navigator.clipboard.writeText(link);
+      exibirNotificacao(`Link da Mesa ${mesaId} copiado para compartilhar.`);
+    } catch {
+      window.prompt('Copie o link da comanda:', link);
+    }
+  };
+
+  const abrirComandaQrMesa = (mesaId: number) => {
+    setMesaSelecionadaId(mesaId);
+    setQrMesaId(mesaId);
+    setAba('cardapio');
+    exibirNotificacao(`Comanda digital da Mesa ${mesaId} aberta.`);
   };
 
   const obterPedidosDaMesa = (mesaId: number): Pedido[] => {
@@ -559,6 +599,60 @@ export function Dashboard() {
                 </span>
               </div>
             </div>
+
+            <section className="rounded-2xl border border-indigo-500/30 bg-indigo-500/10 p-5 shadow-xl">
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <div className="mb-2 flex items-center gap-2">
+                    <QrCode className="h-5 w-5 text-indigo-300" />
+                    <h3 className="font-bold text-white">Comanda digital por QR Code</h3>
+                  </div>
+                  <p className="max-w-2xl text-sm text-slate-300">
+                    Gere um acesso exclusivo para cada mesa da adega. O cliente escaneia o código, escolhe os itens e o pedido entra no mesmo fluxo de produção e estoque.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <select
+                    value={qrMesaId}
+                    onChange={e => setQrMesaId(Number(e.target.value))}
+                    className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+                  >
+                    {mesas.map(mesa => <option key={mesa.id} value={mesa.id}>Mesa {mesa.numero}</option>)}
+                  </select>
+                  <button
+                    onClick={() => abrirComandaQrMesa(qrMesaId)}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-500"
+                  >
+                    <Plus className="h-4 w-4" /> Abrir comanda
+                  </button>
+                </div>
+              </div>
+              <div className="mt-5 flex flex-col items-center gap-4 rounded-xl border border-slate-700 bg-slate-950/70 p-4 sm:flex-row">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(obterLinkQrMesa(qrMesaId))}`}
+                  alt={`QR Code da Mesa ${qrMesaId}`}
+                  className="h-36 w-36 rounded-lg bg-white p-2"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-white">Mesa {qrMesaId}</p>
+                  <p className="mt-1 break-all text-xs text-slate-400">{obterLinkQrMesa(qrMesaId)}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      onClick={() => copiarLinkQrMesa(qrMesaId)}
+                      className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800"
+                    >
+                      Copiar link
+                    </button>
+                    <button
+                      onClick={() => window.open(obterLinkQrMesa(qrMesaId), '_blank', 'noopener,noreferrer')}
+                      className="rounded-lg border border-indigo-500/40 px-3 py-2 text-xs font-semibold text-indigo-300 hover:bg-indigo-500/10"
+                    >
+                      Testar acesso do cliente
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-6">
               {mesas.map((mesa) => {
