@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { CognitiveKit } from '../components/CognitiveKit';
+import { VoiceCommandCenter } from '../components/VoiceCommandCenter';
 
 export const Route = createFileRoute('/')({
   component: Dashboard,
@@ -1555,6 +1556,7 @@ export function Dashboard() {
         )}
 
         <CognitiveKit />
+        <VoiceCommandCenter />
 
         <section className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/80 p-4 shadow-xl">
           <div className="flex flex-wrap items-center justify-between gap-3">
