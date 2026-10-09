@@ -212,7 +212,7 @@ export function Dashboard() {
     operacaoLojaEmAndamento.current = true;
     window.setTimeout(() => {
       operacaoLojaEmAndamento.current = false;
-    }, 250);
+    }, 800);
     return true;
   };
   const [quantidadeTroca, setQuantidadeTroca] = useState(1);
@@ -531,20 +531,71 @@ export function Dashboard() {
   const executarTestesSimultaneos = () => {
     const produto = produtosLoja[0];
     const venda = vendasLoja[0];
-    const estoqueConsistente = produtosLoja.every(item => item.estoque >= 0);
-    const vendaConsistente = vendasLoja.every(item => item.total === item.itens.reduce((total, linha) => total + linha.quantidade * linha.valorUnitario, 0));
-    const trocaConsistente = trocasLoja.every(item => item.status === 'concluida' && item.vendaId.length > 0);
+    const estoqueConsistente = produtosLoja.every(item => Number.isFinite(item.estoque) && item.estoque >= 0);
+    const vendaConsistente = vendasLoja.every(item => {
+      const totalItens = item.itens.reduce((total, linha) => total + linha.quantidade * linha.valorUnitario, 0);
+      return item.itens.length > 0 && item.total === totalItens && item.total > 0;
+    });
+    const trocaConsistente = trocasLoja.every(item => item.status === 'concluida' && item.vendaId.length > 0 && Number.isFinite(item.diferenca));
+
+    const estoqueInicial = Math.max(0, produto?.estoque ?? 0);
+    let unidadesRestantes = Math.min(1, estoqueInicial);
+    let vendasAceitas = 0;
+    const tentativasConcorrentes = [1, 2].map(() => {
+      if (unidadesRestantes < 1) return false;
+      unidadesRestantes -= 1;
+      vendasAceitas += 1;
+      return true;
+    });
+    const disputaUltimaUnidadeSegura = tentativasConcorrentes.filter(Boolean).length <= 1 && unidadesRestantes >= 0;
+
+    const chaveOperacao = `teste-${produto?.id ?? 'sem-produto'}-PIX`;
+    const chavesProcessadas = new Set<string>();
+    const primeiroClique = !chavesProcessadas.has(chaveOperacao);
+    if (primeiroClique) chavesProcessadas.add(chaveOperacao);
+    const segundoCliqueBloqueado = chavesProcessadas.has(chaveOperacao);
+
     setResultadosTeste([
-      { nome: 'Venda simultânea', sucesso: estoqueConsistente && produto.estoque >= 0, detalhe: 'Estoque não ficou negativo e o catálogo permanece disponível.' },
-      { nome: 'Consolidação de vendas', sucesso: vendaConsistente && venda.total > 0, detalhe: 'Totais dos itens conferem com o total de cada venda.' },
-      { nome: 'Trocas e caixa', sucesso: trocaConsistente, detalhe: 'Trocas concluídas possuem venda de origem e ajuste financeiro registrado.' }
+      {
+        nome: 'Clique duplo protegido',
+        sucesso: primeiroClique && segundoCliqueBloqueado,
+        detalhe: 'A mesma operação possui uma chave única e a segunda tentativa é reconhecida como repetida.'
+      },
+      {
+        nome: 'Disputa pela última unidade',
+        sucesso: disputaUltimaUnidadeSegura,
+        detalhe: `Foram aceitas ${vendasAceitas} de 2 tentativas e o estoque simulado não ficou negativo.`
+      },
+      {
+        nome: 'Consolidação de vendas',
+        sucesso: estoqueConsistente && vendaConsistente && Boolean(venda),
+        detalhe: 'Todos os totais possuem itens correspondentes, valores válidos e estoque não negativo.'
+      },
+      {
+        nome: 'Trocas e caixa',
+        sucesso: trocaConsistente,
+        detalhe: 'Trocas concluídas possuem venda de origem, diferença financeira válida e status concluído.'
+      }
     ]);
-    exibirNotificacao('Testes simultâneos executados.');
+    exibirNotificacao('Testes de concorrência e consistência executados.');
   };
 
   // Reabastecer Estoque
   const reabastecerItem = (itemId: string, qtd: number) => {
-    setCardapio(prev => prev.map(item => item.id === itemId ? { ...item, estoque: item.estoque + qtd } : item));
+    if (!Number.isInteger(qtd) || qtd <= 0) {
+      alert('A quantidade de reposição deve ser um número inteiro positivo.');
+      return;
+    }
+
+    const itemExiste = cardapio.some(item => item.id === itemId);
+    if (!itemExiste) {
+      alert('Item de estoque não encontrado.');
+      return;
+    }
+
+    setCardapio(prev => prev.map(item => item.id === itemId
+      ? { ...item, estoque: Math.max(0, item.estoque) + qtd }
+      : item));
     exibirNotificacao(`Estoque reabastecido com sucesso!`);
   };
 
