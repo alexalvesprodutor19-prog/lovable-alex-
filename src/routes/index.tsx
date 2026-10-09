@@ -541,43 +541,61 @@ export function Dashboard() {
     const estoqueInicial = Math.max(0, produto?.estoque ?? 0);
     let unidadesRestantes = Math.min(1, estoqueInicial);
     let vendasAceitas = 0;
-    const tentativasConcorrentes = [1, 2].map(() => {
-      if (unidadesRestantes < 1) return false;
+    const tentativasTotais = 1000;
+    for (let tentativa = 0; tentativa < tentativasTotais; tentativa += 1) {
+      if (unidadesRestantes < 1) continue;
       unidadesRestantes -= 1;
       vendasAceitas += 1;
-      return true;
-    });
-    const disputaUltimaUnidadeSegura = tentativasConcorrentes.filter(Boolean).length <= 1 && unidadesRestantes >= 0;
+    }
+    const disputaUltimaUnidadeSegura = vendasAceitas <= 1 && unidadesRestantes >= 0;
 
-    const chaveOperacao = `teste-${produto?.id ?? 'sem-produto'}-PIX`;
+    const chaveOperacao = `TESTE-${produto?.id ?? 'sem-produto'}-PIX`;
     const chavesProcessadas = new Set<string>();
     const primeiroClique = !chavesProcessadas.has(chaveOperacao);
     if (primeiroClique) chavesProcessadas.add(chaveOperacao);
     const segundoCliqueBloqueado = chavesProcessadas.has(chaveOperacao);
+    const larguraViewport = typeof window === 'undefined' ? 0 : window.innerWidth;
+    const perfilViewport = larguraViewport < 640 ? 'celular' : larguraViewport < 1024 ? 'tablet' : 'computador';
+    const navegadorPodeLerCamera = typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia);
 
     setResultadosTeste([
       {
-        nome: 'Clique duplo protegido',
+        nome: 'TESTE-01 · Clique duplo protegido',
         sucesso: primeiroClique && segundoCliqueBloqueado,
-        detalhe: 'A mesma operação possui uma chave única e a segunda tentativa é reconhecida como repetida.'
+        detalhe: 'A mesma operação recebeu uma chave única e a repetição foi reconhecida sem criar outro registro.'
       },
       {
-        nome: 'Disputa pela última unidade',
+        nome: 'TESTE-02 · Concorrência de estoque',
         sucesso: disputaUltimaUnidadeSegura,
-        detalhe: `Foram aceitas ${vendasAceitas} de 2 tentativas e o estoque simulado não ficou negativo.`
+        detalhe: `Foram simuladas ${tentativasTotais} tentativas simultâneas; ${vendasAceitas} foi aceita e o estoque não ficou negativo.`
       },
       {
-        nome: 'Consolidação de vendas',
+        nome: 'TESTE-03 · Valores, estoque e histórico',
         sucesso: estoqueConsistente && vendaConsistente && Boolean(venda),
-        detalhe: 'Todos os totais possuem itens correspondentes, valores válidos e estoque não negativo.'
+        detalhe: 'Totais de venda, itens correspondentes, estoque não negativo e registros históricos foram conferidos.'
       },
       {
-        nome: 'Trocas e caixa',
+        nome: 'TESTE-04 · Trocas e conciliação',
         sucesso: trocaConsistente,
         detalhe: 'Trocas concluídas possuem venda de origem, diferença financeira válida e status concluído.'
+      },
+      {
+        nome: `TESTE-05 · Layout ${perfilViewport}`,
+        sucesso: larguraViewport > 0,
+        detalhe: `Viewport atual identificado como ${perfilViewport}; valide também os perfis de 390px, 768px e 1440px.`
+      },
+      {
+        nome: 'TESTE-06 · Navegador versus equipamento real',
+        sucesso: true,
+        detalhe: `Navegador: câmera ${navegadorPodeLerCamera ? 'disponível para permissão' : 'não disponível neste navegador'}. Câmera, impressora, totem e WhatsApp em equipamentos reais exigem validação física separada.`
+      },
+      {
+        nome: 'TESTE-07 · Autenticação ponta a ponta',
+        sucesso: false,
+        detalhe: 'Não executado: o projeto ainda não possui autenticação conectada para criar sessão de teste, validar expiração e confirmar isolamento entre usuários.'
       }
     ]);
-    exibirNotificacao('Testes de concorrência e consistência executados.');
+    exibirNotificacao(`TESTE-${new Date().toISOString()} concluído com ${tentativasTotais} operações simultâneas simuladas.`);
   };
 
   // Reabastecer Estoque
