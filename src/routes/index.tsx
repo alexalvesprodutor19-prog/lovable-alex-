@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   UtensilsCrossed,
   Beer,
@@ -203,6 +203,16 @@ export function Dashboard() {
   const [vendaTrocaId, setVendaTrocaId] = useState('VDA-1001');
   const [produtoDevolvidoId, setProdutoDevolvidoId] = useState('roupa-1');
   const [produtoNovoId, setProdutoNovoId] = useState('roupa-3');
+  const operacaoLojaEmAndamento = useRef(false);
+
+  const iniciarOperacaoLoja = () => {
+    if (operacaoLojaEmAndamento.current) return false;
+    operacaoLojaEmAndamento.current = true;
+    window.setTimeout(() => {
+      operacaoLojaEmAndamento.current = false;
+    }, 250);
+    return true;
+  };
   const [quantidadeTroca, setQuantidadeTroca] = useState(1);
   const [valorContado, setValorContado] = useState<number | ''>('');
   const [resultadoConciliacao, setResultadoConciliacao] = useState<string>('');
@@ -391,21 +401,26 @@ export function Dashboard() {
 
   // Operações da loja de roupas
   const registrarVendaLoja = (produto: ProdutoLoja, formaPagamento: FormaPagamentoLoja) => {
-    if (produto.estoque <= 0) {
+    if (!iniciarOperacaoLoja()) return;
+
+    const produtoAtual = produtosLoja.find(item => item.id === produto.id);
+    if (!produtoAtual || produtoAtual.estoque <= 0) {
       alert('Produto sem estoque disponível.');
       return;
     }
 
     const novaVenda: VendaLoja = {
-      id: `VDA-${Math.floor(1000 + Math.random() * 9000)}`,
+      id: `VDA-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().slice(0, 8).toUpperCase() : `${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`}`,
       cliente: 'Cliente balcão',
-      itens: [{ produtoId: produto.id, nome: produto.nome, quantidade: 1, valorUnitario: produto.preco }],
+      itens: [{ produtoId: produtoAtual.id, nome: produtoAtual.nome, quantidade: 1, valorUnitario: produtoAtual.preco }],
       formaPagamento,
-      total: produto.preco,
+      total: produtoAtual.preco,
       horario: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
     };
 
-    setProdutosLoja(prev => prev.map(item => item.id === produto.id ? { ...item, estoque: item.estoque - 1 } : item));
+    setProdutosLoja(prev => prev.map(item => item.id === produtoAtual.id && item.estoque > 0
+      ? { ...item, estoque: item.estoque - 1 }
+      : item));
     setVendasLoja(prev => [novaVenda, ...prev]);
     exibirNotificacao(`Venda ${novaVenda.id} registrada com sucesso.`);
   };
