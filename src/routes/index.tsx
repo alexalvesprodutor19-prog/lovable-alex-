@@ -19,7 +19,8 @@ import {
   ClipboardCheck,
   TestTube,
   WalletCards,
-  QrCode
+  QrCode,
+  Printer
 } from 'lucide-react';
 
 export const Route = createFileRoute('/')({
@@ -200,6 +201,7 @@ export function Dashboard() {
     }
   ]);
   const [trocasLoja, setTrocasLoja] = useState<TrocaLoja[]>([]);
+  const pagamentosEmAndamento = useRef<Set<number>>(new Set());
   const [vendaTrocaId, setVendaTrocaId] = useState('VDA-1001');
   const [produtoDevolvidoId, setProdutoDevolvidoId] = useState('roupa-1');
   const [produtoNovoId, setProdutoNovoId] = useState('roupa-3');
@@ -237,6 +239,41 @@ export function Dashboard() {
   const obterLinkQrMesa = (mesaId: number): string => {
     const origem = typeof window === 'undefined' ? '' : window.location.origin;
     return `${origem}/?mesa=${mesaId}&pedido=1`;
+  };
+
+  const imprimirQrMesa = (mesaId: number) => {
+    if (typeof window === 'undefined') return;
+
+    const janela = window.open('', '_blank', 'width=520,height=680');
+    if (!janela) {
+      exibirNotificacao('Permita pop-ups para imprimir o QR Code da mesa.');
+      return;
+    }
+
+    const link = obterLinkQrMesa(mesaId);
+    const imagemQr = `https://api.qrserver.com/v1/create-qr-code/?size=360x360&data=${encodeURIComponent(link)}`;
+    janela.document.write(`
+      <!doctype html>
+      <html lang="pt-BR">
+        <head>
+          <meta charset="UTF-8" />
+          <title>QR Code - Mesa ${mesaId}</title>
+          <style>
+            body { font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 90vh; color: #111827; }
+            img { width: 360px; height: 360px; }
+            p { max-width: 420px; text-align: center; word-break: break-all; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <h1>Mesa ${mesaId}</h1>
+          <img src="${imagemQr}" alt="QR Code da Mesa ${mesaId}" />
+          <p>${link}</p>
+        </body>
+      </html>
+    `);
+    janela.document.close();
+    janela.focus();
+    janela.onload = () => janela.print();
   };
 
   const copiarLinkQrMesa = async (mesaId: number) => {
@@ -366,12 +403,22 @@ export function Dashboard() {
 
   // 5. FECHAR CONTA E REALIZAR PAGAMENTO
   const realizarPagamento = (mesaId: number, formaPagamento: string, aplicarDezPorcento: boolean) => {
+    if (pagamentosEmAndamento.current.has(mesaId)) {
+      exibirNotificacao(`O pagamento da Mesa ${mesaId} já está sendo processado.`);
+      return;
+    }
+
+    pagamentosEmAndamento.current.add(mesaId);
     const mesa = mesas.find(m => m.id === mesaId);
-    if (!mesa) return;
+    if (!mesa) {
+      pagamentosEmAndamento.current.delete(mesaId);
+      return;
+    }
 
     // Consolida os pedidos da mesa sem duplicar os pedidos presentes no KDS e na comanda
     const todosPedidos = obterPedidosDaMesa(mesaId);
     if (todosPedidos.length === 0) {
+      pagamentosEmAndamento.current.delete(mesaId);
       exibirNotificacao(`A Mesa ${mesaId} não possui consumo registrado para pagamento.`);
       return;
     }
@@ -395,6 +442,7 @@ export function Dashboard() {
 
     // Remove pedidos da produção finalizados
     setPedidosProducao(prev => prev.filter(p => p.mesaId !== mesaId));
+    pagamentosEmAndamento.current.delete(mesaId);
 
     exibirNotificacao(`Pagamento de R$ ${totalComTaxa.toFixed(2)} (${formaPagamento}) concluído! Mesa ${mesaId} liberada.`);
   };
@@ -643,10 +691,20 @@ export function Dashboard() {
                 </div>
               </div>
               <div className="mt-5 flex flex-col items-center gap-4 rounded-xl border border-slate-700 bg-slate-950/70 p-4 sm:flex-row">
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(obterLinkQrMesa(qrMesaId))}`}
-                  alt={`QR Code da Mesa ${qrMesaId}`}
-                  className="h-36 w-36 rounded-lg bg-white p-2"
+                <div className="flex flex-col items-center gap-3">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(obterLinkQrMesa(qrMesaId))}`}
+                    alt={`QR Code da Mesa ${qrMesaId}`}
+                    className="h-36 w-36 rounded-lg bg-white p-2"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => imprimirQrMesa(qrMesaId)}
+                    className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-800"
+                  >
+                    <Printer className="h-4 w-4" /> Imprimir QR Code
+                  </button>
+                </div>
                 />
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-white">Mesa {qrMesaId}</p>
