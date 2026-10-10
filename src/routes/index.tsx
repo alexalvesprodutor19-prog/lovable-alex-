@@ -776,7 +776,7 @@ export function Dashboard() {
             <UtensilsCrossed className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white tracking-wide">GastrôControl POS</h1>
+            <h1 className="text-xl font-bold text-white tracking-wide">GastrôControl POS — Gestão inteligente</h1>
             <p className="text-xs text-slate-400">Gestão de Mesas, Produção (KDS), Caixa e Estoque</p>
           </div>
         </div>
