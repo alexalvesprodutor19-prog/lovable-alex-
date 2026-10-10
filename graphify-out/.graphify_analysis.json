@@ -1,0 +1,230 @@
+{
+  "communities": {
+    "0": [
+      "ref_supabase_supabase_js",
+      "src_lib_supabase",
+      "src_lib_supabase_issupabaseconfigured",
+      "src_lib_supabase_supabase",
+      "src_lib_supabase_supabasepublishablekey",
+      "src_lib_supabase_supabaseurl",
+      "src_routes_index",
+      "src_routes_index_acessoqrmesa",
+      "src_routes_index_categoriaitem",
+      "src_routes_index_formapagamentoloja",
+      "src_routes_index_itemcardapio",
+      "src_routes_index_itempedido",
+      "src_routes_index_itemvendaloja",
+      "src_routes_index_mesa",
+      "src_routes_index_movimentofinanceiro",
+      "src_routes_index_pedido",
+      "src_routes_index_produtoloja",
+      "src_routes_index_resultadoteste",
+      "src_routes_index_route",
+      "src_routes_index_statusmesa",
+      "src_routes_index_statuspedido",
+      "src_routes_index_statustroca",
+      "src_routes_index_tipomovimentofinanceiro",
+      "src_routes_index_trocaloja",
+      "src_routes_index_vendaloja"
+    ],
+    "1": [
+      "tests_operational_tests",
+      "tests_operational_tests_assert",
+      "tests_operational_tests_conciliarcaixa",
+      "tests_operational_tests_criarsessaoteste",
+      "tests_operational_tests_executaroperacaoatomica",
+      "tests_operational_tests_formaspagamentoaceitas",
+      "tests_operational_tests_gerarmovimento",
+      "tests_operational_tests_money",
+      "tests_operational_tests_processaroperacaoidempotente",
+      "tests_operational_tests_processarpagamento",
+      "tests_operational_tests_reservarhorario",
+      "tests_operational_tests_run",
+      "tests_operational_tests_simularoperacaocomconexao",
+      "tests_operational_tests_totalesperadocaixa",
+      "tests_operational_tests_validarpermissao",
+      "tests_operational_tests_validarsessao"
+    ],
+    "2": [
+      "package",
+      "package_name",
+      "package_private",
+      "package_type",
+      "package_version",
+      "ref_autoprefixer",
+      "ref_path",
+      "ref_postcss",
+      "ref_tailwindcss",
+      "ref_types_react",
+      "ref_types_react_dom",
+      "ref_typescript",
+      "ref_vite",
+      "ref_vitejs_plugin_react",
+      "vite_config"
+    ],
+    "3": [
+      "src_components_cognitivekit",
+      "src_components_cognitivekit_auditentry",
+      "src_components_cognitivekit_buildrecommendations",
+      "src_components_cognitivekit_cognitivekit",
+      "src_components_cognitivekit_inferinterpretation",
+      "src_components_cognitivekit_interpretation",
+      "src_components_cognitivekit_memory",
+      "src_components_cognitivekit_memorykind",
+      "src_components_cognitivekit_readaudit",
+      "src_components_cognitivekit_readmemories",
+      "src_components_cognitivekit_recommendation",
+      "src_components_cognitivekit_retrieverelevant",
+      "src_components_cognitivekit_strategicfocus",
+      "src_components_cognitivekit_tokenize",
+      "src_components_cognitivekit_tone"
+    ],
+    "4": [
+      "ref_lucide_react",
+      "src_components_voicecommandcenter",
+      "src_components_voicecommandcenter_aliases",
+      "src_components_voicecommandcenter_getrecognitionconstructor",
+      "src_components_voicecommandcenter_normalize",
+      "src_components_voicecommandcenter_speechrecognitionconstructor",
+      "src_components_voicecommandcenter_speechrecognitionerrorevent",
+      "src_components_voicecommandcenter_speechrecognitionevent",
+      "src_components_voicecommandcenter_speechrecognitioninstance",
+      "src_components_voicecommandcenter_speechrecognitionresult",
+      "src_components_voicecommandcenter_speechrecognitionresultitem",
+      "src_components_voicecommandcenter_voicecommandcenter",
+      "src_components_voicecommandcenter_voicecommandcenterprops",
+      "src_routes_index_dashboard"
+    ],
+    "5": [
+      "ref_react",
+      "ref_react_dom",
+      "ref_routetree_gen",
+      "ref_tanstack_react_router",
+      "src_main",
+      "src_main_register",
+      "src_main_router",
+      "src_main_tanstack_react_router",
+      "src_routes_root",
+      "src_routes_root_route",
+      "src_styles"
+    ],
+    "6": [
+      "package_devdependencies",
+      "package_devdependencies_autoprefixer",
+      "package_devdependencies_postcss",
+      "package_devdependencies_tailwindcss",
+      "package_devdependencies_types_react",
+      "package_devdependencies_types_react_dom",
+      "package_devdependencies_typescript",
+      "package_devdependencies_vite",
+      "package_devdependencies_vitejs_plugin_react"
+    ],
+    "7": [
+      "package_dependencies",
+      "package_dependencies_lucide_react",
+      "package_dependencies_react",
+      "package_dependencies_react_dom",
+      "package_dependencies_supabase_supabase_js",
+      "package_dependencies_tanstack_react_router"
+    ],
+    "8": [
+      "package_scripts",
+      "package_scripts_build",
+      "package_scripts_dev",
+      "package_scripts_lint",
+      "package_scripts_preview",
+      "package_scripts_test"
+    ]
+  },
+  "cohesion": {
+    "0": 0.08666666666666667,
+    "1": 0.275,
+    "2": 0.14285714285714285,
+    "3": 0.20952380952380953,
+    "4": 0.16483516483516483,
+    "5": 0.18181818181818182,
+    "6": 0.2222222222222222,
+    "7": 0.3333333333333333,
+    "8": 0.3333333333333333
+  },
+  "gods": [
+    {
+      "id": "tests_operational_tests_run",
+      "label": "run()",
+      "degree": 14
+    },
+    {
+      "id": "src_components_cognitivekit_cognitivekit",
+      "label": "CognitiveKit()",
+      "degree": 9
+    },
+    {
+      "id": "package_scripts",
+      "label": "scripts",
+      "degree": 6
+    },
+    {
+      "id": "tests_operational_tests_money",
+      "label": "money()",
+      "degree": 6
+    },
+    {
+      "id": "ref_react",
+      "label": "react",
+      "degree": 5
+    },
+    {
+      "id": "src_components_voicecommandcenter_voicecommandcenter",
+      "label": "VoiceCommandCenter()",
+      "degree": 5
+    },
+    {
+      "id": "ref_tanstack_react_router",
+      "label": "@tanstack/react-router",
+      "degree": 4
+    },
+    {
+      "id": "src_components_cognitivekit_tokenize",
+      "label": "tokenize()",
+      "degree": 4
+    },
+    {
+      "id": "src_components_voicecommandcenter_normalize",
+      "label": "normalize()",
+      "degree": 4
+    },
+    {
+      "id": "ref_lucide_react",
+      "label": "lucide-react",
+      "degree": 3
+    }
+  ],
+  "surprises": [
+    {
+      "source": "Dashboard()",
+      "target": "CognitiveKit()",
+      "source_files": [
+        "src/routes/index.tsx",
+        "src/components/CognitiveKit.tsx"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "Dashboard()",
+      "target": "VoiceCommandCenter()",
+      "source_files": [
+        "src/routes/index.tsx",
+        "src/components/VoiceCommandCenter.tsx"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "cross-file semantic connection"
+    }
+  ],
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
+}
